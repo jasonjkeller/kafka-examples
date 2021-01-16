@@ -36,10 +36,13 @@ public class KafkaConsumerService {
             String headerValueString = new String(header.value(), StandardCharsets.UTF_8);
             System.out.printf("\theader.key = %s, header.value = %s%n", header.key(), headerValueString);
 
-            // TODO use new DT APIs, test W3C headers
             if (header.key().equals("newrelic")) {
                 NewRelic.getAgent().getTransaction().acceptDistributedTracePayload(headerValueString);
             }
+            // TODO use new DT APIs, parse W3C headers
+//            if (header.key().equals("w3c")) {
+//                NewRelic.getAgent().getTransaction().acceptDistributedTraceHeaders(TransportType.Kafka, Headers);
+//            }
         }
     }
 

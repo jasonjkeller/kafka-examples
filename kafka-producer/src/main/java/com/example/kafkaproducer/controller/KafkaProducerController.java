@@ -19,6 +19,9 @@ public class KafkaProducerController {
 
         KafkaTemplate<String, String> producer = KafkaProducerFactory.kafkaTemplate();
 
+        // TODO generate W3C headers
+//        NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(Headers);
+
         int randomInt = getRandomInt();
         ProducerRecord<String, String> producerRecord = new ProducerRecord<>("example-topic", "example-key-" + randomInt, "example-value-" + randomInt);
         producerRecord.headers().add("foo", "bar".getBytes(StandardCharsets.UTF_8));
