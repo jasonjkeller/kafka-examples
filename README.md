@@ -111,3 +111,8 @@ Consuming Kafka Record:
 	Kafka record header: key = tracestate, value = 1939595@nr=0-0-2212864-1279685854-128bc7290a7f5d8e-f6b1ebb08dac2b50-0-0.916613-1610924459792
 	Kafka record header: key = newrelic, value = {"d":{"ac":"2212864","pr":0.916613,"tx":"f6b1ebb08dac2b50","ti":1610924459797,"ty":"App","tk":"1939595","tr":"025be10f5f64e6ee009e3d0df7e8c474","sa":false,"ap":"1279685854"},"v":[0,1]}
 ``` 
+### Example distributed trace
+
+In this screenshot the `kafka-producer` and `kafka-consumer` services are connected in a single distributed trace.
+
+![distributed trace](kafka-distributed-trace.jpg)
