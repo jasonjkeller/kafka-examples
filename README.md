@@ -23,7 +23,7 @@ A number of scripts have been provided in the `kafka_2.13-2.6.0/` directory to s
    `./start-zookeeper.sh`
 2. Start the Kafka broker in its own terminal window:  
     `./start-kafka.sh`
-3. Create a topic on the Kafka broker in new terminal window (only needs to be done once):  
+3. Create a topic on the Kafka broker in new terminal window:  
     `./create-topic.sh`
 4. [Run the Kafka producer and consumer services](#run-the-kafka-producer-and-consumer-services)
     * `KafkaProducerApplication`
@@ -79,17 +79,20 @@ This will result in two services reporting to New Relic One: `kafka-producer` an
 ### Kafka producer
 
 The Java agent's [Spring instrumentation](https://github.com/newrelic/newrelic-java-agent/tree/main/instrumentation/spring-4.3.0) automatically starts a 
-transaction when the `kafka/produce (GET)` controller route in the `kafka-producer` service is executed. This controller creates a Kafka record, injects W3C 
-Trace Context headers into the record using the `insertDistributedTraceHeaders(Headers headers)` API, and then publishes the record to a Kafka broker.
+transaction when the `kafka/produce (GET)` controller route in the `kafka-producer` service is executed. This controller creates a Kafka record, generates W3C 
+Trace Context headers and inserts them into a map of headers using the `insertDistributedTraceHeaders(Headers headers)` API, finally it manually retrieves the 
+W3C headers and inserts them into the Kafka record headers before publishing the record to a Kafka broker. 
 
 Additionally, the agent's [Kafka client instrumentation](https://github.com/newrelic/newrelic-java-agent/tree/main/instrumentation/kafka-clients-spans-0.11.0.0) 
 automatically applies to the Kafka producer client and generates a span named `MessageBroker/Kafka/Topic/Produce/Named/example-topic` that is included in the 
-distributed trace.
+distributed trace. The Kafka client instrumentation also injects the `newrelic` distributed tracing header into each record to link distributed 
+traces with other services monitored by New Relic APM agents.
 
 The `kafka-producer` service logs a line similar to the following each time it publishes a Kafka record to the broker:
 
 ```
-Published Kafka Record: example-key-693, example-value-693 to topic: example-topic
+Published Kafka Record:
+	topic = example-topic, key = example-key-935, value = example-value-935
 ``` 
 
 ### Kafka consumer
@@ -102,11 +105,9 @@ distributed trace that originated in the `kafka-producer` service.
 The `kafka-consumer` service logs a line similar to the following each time it processes a Kafka record:
 
 ```
-// TODO example with W3C Trace Context headers
-
 Consuming Kafka Record:
-	offset = 3132, key = example-key-860, value = example-value-860
-	header.key = foo, header.value = bar
-	header.key = newrelic, header.value = {"d":{"ac":"2212864","pr":1.2920771,"tx":"dab6d2c0c4375dfd","ti":1610748204711,"ty":"App","tk":"1939595",
-"id":"571f1d3479ae6199","tr":"6d157a9b619f8b4ecf39b0a85b747ae6","sa":true,"ap":"1279685854"},"v":[0,1]}
+	topic = example-topic, key = example-key-935, value = example-value-935, offset = 865
+	Kafka record header: key = traceparent, value = 00-025be10f5f64e6ee009e3d0df7e8c474-128bc7290a7f5d8e-00
+	Kafka record header: key = tracestate, value = 1939595@nr=0-0-2212864-1279685854-128bc7290a7f5d8e-f6b1ebb08dac2b50-0-0.916613-1610924459792
+	Kafka record header: key = newrelic, value = {"d":{"ac":"2212864","pr":0.916613,"tx":"f6b1ebb08dac2b50","ti":1610924459797,"ty":"App","tk":"1939595","tr":"025be10f5f64e6ee009e3d0df7e8c474","sa":false,"ap":"1279685854"},"v":[0,1]}
 ``` 

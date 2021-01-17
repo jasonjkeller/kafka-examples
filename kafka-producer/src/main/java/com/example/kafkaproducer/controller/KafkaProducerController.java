@@ -1,6 +1,11 @@
 package com.example.kafkaproducer.controller;
 
 import com.example.kafkaproducer.config.KafkaProducerFactory;
+import com.newrelic.api.agent.ConcurrentHashMapHeaders;
+import com.newrelic.api.agent.HeaderType;
+import com.newrelic.api.agent.Headers;
+import com.newrelic.api.agent.NewRelic;
+import com.newrelic.api.agent.Trace;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,24 +18,60 @@ import java.util.Random;
 @RestController
 @RequestMapping("kafka")
 public class KafkaProducerController {
+    private static final String W3C_TRACE_PARENT = "traceparent";
+    private static final String W3C_TRACE_STATE = "tracestate";
 
+    /**
+     * Publishes a Kafka record to a Kafka broker.
+     *
+     * @return String detailing the published record
+     */
     @GetMapping("/produce")
     private String produce() {
 
         KafkaTemplate<String, String> producer = KafkaProducerFactory.kafkaTemplate();
-
-        // TODO generate W3C headers
-//        NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(Headers);
-
         int randomInt = getRandomInt();
+
         ProducerRecord<String, String> producerRecord = new ProducerRecord<>("example-topic", "example-key-" + randomInt, "example-value-" + randomInt);
-        producerRecord.headers().add("foo", "bar".getBytes(StandardCharsets.UTF_8));
+        addDistributedTraceHeadersToKafkaRecord(producerRecord);
         producer.send(producerRecord);
 
-        String publishedRecordMessage =
-                "Published Kafka Record: " + producerRecord.key() + ", " + producerRecord.value() + " to topic: " + producerRecord.topic() + "\n";
+//        String publishedRecordMessage =
+//                "Published Kafka Record: \n\t" + "topic = " + producerRecord.topic() + ", key = " + producerRecord.key() + ", value = " +
+//                        producerRecord.value() + "\n";
+
+        String publishedRecordMessage = String.format("%nPublished Kafka Record:%n\ttopic = %s, key = %s, value = %s%n", producerRecord.topic(),
+                producerRecord.key(), producerRecord.value());
+//        System.out.printf("\nConsuming Kafka Record:\n\ttopic = %s, key = %s, value = %s, offset = %d%n", consumerRecord.topic(), consumerRecord.key(),
+//                consumerRecord.value(),
+//                consumerRecord.offset());
+
         System.out.println(publishedRecordMessage);
         return publishedRecordMessage;
+    }
+
+    /**
+     * This method illustrates usage of New Relic Java agent APIs for propagating distributed tracing headers over Kafka records.
+     * NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(Headers) is used to generate distributed tracing headers and insert them into
+     * a provided Headers map. This API generates a New Relic header (`newrelic`) as well as W3C Trace Context headers (`traceparent`, `tracestate`).
+     *
+     * @param producerRecord Kafka record
+     */
+    @Trace
+    private void addDistributedTraceHeadersToKafkaRecord(ProducerRecord<String, String> producerRecord) {
+        // ConcurrentHashMapHeaders provides a concrete implementation of com.newrelic.api.agent.Headers
+        Headers distributedTraceHeaders = ConcurrentHashMapHeaders.build(HeaderType.MESSAGE);
+        // Generate W3C Trace Context headers and insert them into the distributedTraceHeaders map
+        NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(distributedTraceHeaders);
+
+        // Retrieve the generated W3C Trace Context headers and insert them into the ProducerRecord headers
+        if (distributedTraceHeaders.containsHeader(W3C_TRACE_PARENT)) {
+            producerRecord.headers().add(W3C_TRACE_PARENT, distributedTraceHeaders.getHeader(W3C_TRACE_PARENT).getBytes(StandardCharsets.UTF_8));
+        }
+
+        if (distributedTraceHeaders.containsHeader(W3C_TRACE_STATE)) {
+            producerRecord.headers().add(W3C_TRACE_STATE, distributedTraceHeaders.getHeader(W3C_TRACE_STATE).getBytes(StandardCharsets.UTF_8));
+        }
     }
 
     private int getRandomInt() {
