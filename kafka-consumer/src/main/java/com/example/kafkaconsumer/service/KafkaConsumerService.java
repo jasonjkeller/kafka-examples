@@ -69,10 +69,9 @@ public class KafkaConsumerService {
             String kafkaRecordHeaderValue = new String(kafkaRecordHeader.value(), StandardCharsets.UTF_8);
             System.out.printf("\tKafka record header: key = %s, value = %s%n", kafkaRecordHeader.key(), kafkaRecordHeaderValue);
 
-            // Uncomment to also accept the newrelic distributed tracing header
-//            if (kafkaHeader.key().equals(NEWRELIC_HEADER)) {
-//                distributedTraceHeaders.addHeader(NEWRELIC_HEADER, kafkaHeaderValue);
-//            }
+            if (kafkaRecordHeader.key().equals(NEWRELIC_HEADER)) {
+                distributedTraceHeaders.addHeader(NEWRELIC_HEADER, kafkaRecordHeaderValue);
+            }
 
             if (kafkaRecordHeader.key().equals(W3C_TRACE_PARENT_HEADER)) {
                 distributedTraceHeaders.addHeader(W3C_TRACE_PARENT_HEADER, kafkaRecordHeaderValue);

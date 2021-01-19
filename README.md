@@ -13,6 +13,32 @@ transaction when the `kafka/produce (GET)` controller route in the `kafka-produc
 Trace Context headers and inserts them into a map of headers using the `insertDistributedTraceHeaders(Headers headers)` API, finally it manually retrieves the 
 W3C headers and inserts them into the Kafka record headers before publishing the record to a Kafka broker. 
 
+```java
+    /**
+     * This method illustrates usage of New Relic Java agent APIs for propagating distributed tracing headers over Kafka records.
+     * NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(Headers) is used to generate distributed tracing headers and insert them into
+     * a provided Headers map. This API generates a New Relic header (`newrelic`) as well as W3C Trace Context headers (`traceparent`, `tracestate`).
+     *
+     * @param producerRecord Kafka record
+     */
+    @Trace
+    private void addDistributedTraceHeadersToKafkaRecord(ProducerRecord<String, String> producerRecord) {
+        // ConcurrentHashMapHeaders provides a concrete implementation of com.newrelic.api.agent.Headers
+        Headers distributedTraceHeaders = ConcurrentHashMapHeaders.build(HeaderType.MESSAGE);
+        // Generate W3C Trace Context headers and insert them into the distributedTraceHeaders map
+        NewRelic.getAgent().getTransaction().insertDistributedTraceHeaders(distributedTraceHeaders);
+
+        // Retrieve the generated W3C Trace Context headers and insert them into the ProducerRecord headers
+        if (distributedTraceHeaders.containsHeader(W3C_TRACE_PARENT)) {
+            producerRecord.headers().add(W3C_TRACE_PARENT, distributedTraceHeaders.getHeader(W3C_TRACE_PARENT).getBytes(StandardCharsets.UTF_8));
+        }
+
+        if (distributedTraceHeaders.containsHeader(W3C_TRACE_STATE)) {
+            producerRecord.headers().add(W3C_TRACE_STATE, distributedTraceHeaders.getHeader(W3C_TRACE_STATE).getBytes(StandardCharsets.UTF_8));
+        }
+    }
+```
+
 Additionally, the agent's [Kafka client instrumentation](https://github.com/newrelic/newrelic-java-agent/tree/main/instrumentation/kafka-clients-spans-0.11.0.0) 
 automatically applies to the Kafka producer client and generates a span named `MessageBroker/Kafka/Topic/Produce/Named/example-topic` that is included in the 
 distributed trace. The Kafka client instrumentation also injects the `newrelic` distributed tracing header into each record to link distributed 
@@ -31,6 +57,42 @@ The `kafka-consumer` service continuously polls the Kafka broker and individuall
 record is executed a transaction is started using the Java agent's custom instrumentation APIs. During the processing W3C Trace Context headers are accessed 
 from each record and passed to the `acceptDistributedTraceHeaders(TransportType transportType, Headers headers)` API which links the transaction to the 
 distributed trace that originated in the `kafka-producer` service.
+
+```java
+    /**
+     * This method illustrates usage of New Relic Java agent APIs for propagating distributed tracing headers over Kafka records.
+     * NewRelic.getAgent().getTransaction().acceptDistributedTraceHeaders(TransportType, Headers) is used to accept distributed tracing headers from an
+     * incoming request and link the requests together into a single distributed trace.
+     *
+     * @param record Kafka record
+     */
+    @Trace
+    private static void acceptDistributedTraceHeadersFromKafkaRecord(ConsumerRecord<String, String> record) {
+        // ConcurrentHashMapHeaders provides a concrete implementation of com.newrelic.api.agent.Headers
+        Headers distributedTraceHeaders = ConcurrentHashMapHeaders.build(HeaderType.MESSAGE);
+
+        // Iterate through each Kafka record header and insert the W3C Trace Context headers into the distributedTraceHeaders map
+        for (Header kafkaRecordHeader : record.headers()) {
+            String kafkaRecordHeaderValue = new String(kafkaRecordHeader.value(), StandardCharsets.UTF_8);
+            System.out.printf("\tKafka record header: key = %s, value = %s%n", kafkaRecordHeader.key(), kafkaRecordHeaderValue);
+
+            if (kafkaRecordHeader.key().equals(NEWRELIC_HEADER)) {
+                distributedTraceHeaders.addHeader(NEWRELIC_HEADER, kafkaRecordHeaderValue);
+            }
+
+            if (kafkaRecordHeader.key().equals(W3C_TRACE_PARENT_HEADER)) {
+                distributedTraceHeaders.addHeader(W3C_TRACE_PARENT_HEADER, kafkaRecordHeaderValue);
+            }
+
+            if (kafkaRecordHeader.key().equals(W3C_TRACE_STATE_HEADER)) {
+                distributedTraceHeaders.addHeader(W3C_TRACE_STATE_HEADER, kafkaRecordHeaderValue);
+            }
+
+            // Accept distributed tracing headers to link this request to the originating request
+            NewRelic.getAgent().getTransaction().acceptDistributedTraceHeaders(TransportType.Kafka, distributedTraceHeaders);
+        }
+    }
+```
 
 The `kafka-consumer` service logs a line similar to the following each time it processes a Kafka record:
 
