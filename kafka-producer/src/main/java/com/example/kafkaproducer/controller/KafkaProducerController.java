@@ -36,15 +36,8 @@ public class KafkaProducerController {
         addDistributedTraceHeadersToKafkaRecord(producerRecord);
         producer.send(producerRecord);
 
-//        String publishedRecordMessage =
-//                "Published Kafka Record: \n\t" + "topic = " + producerRecord.topic() + ", key = " + producerRecord.key() + ", value = " +
-//                        producerRecord.value() + "\n";
-
         String publishedRecordMessage = String.format("%nPublished Kafka Record:%n\ttopic = %s, key = %s, value = %s%n", producerRecord.topic(),
                 producerRecord.key(), producerRecord.value());
-//        System.out.printf("\nConsuming Kafka Record:\n\ttopic = %s, key = %s, value = %s, offset = %d%n", consumerRecord.topic(), consumerRecord.key(),
-//                consumerRecord.value(),
-//                consumerRecord.offset());
 
         System.out.println(publishedRecordMessage);
         return publishedRecordMessage;
