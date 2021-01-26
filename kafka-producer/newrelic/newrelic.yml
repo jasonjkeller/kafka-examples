@@ -36,7 +36,7 @@ common: &default_settings
     # max_samples_stored: 100
 
   # ============================ LITE MODE =====================================
-  lite_mode: false
+#  lite_mode: false
 
   # ====================== JFR/Realtime Streaming ==============================
   # jmx:
