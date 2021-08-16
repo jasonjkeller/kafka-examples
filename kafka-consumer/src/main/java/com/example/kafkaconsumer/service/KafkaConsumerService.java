@@ -80,10 +80,9 @@ public class KafkaConsumerService {
             if (kafkaRecordHeader.key().equals(W3C_TRACE_STATE_HEADER)) {
                 distributedTraceHeaders.addHeader(W3C_TRACE_STATE_HEADER, kafkaRecordHeaderValue);
             }
-
-            // Accept distributed tracing headers to link this request to the originating request
-            NewRelic.getAgent().getTransaction().acceptDistributedTraceHeaders(TransportType.Kafka, distributedTraceHeaders);
         }
+        // Accept distributed tracing headers to link this request to the originating request
+        NewRelic.getAgent().getTransaction().acceptDistributedTraceHeaders(TransportType.Kafka, distributedTraceHeaders);
     }
 
 }
